@@ -34,7 +34,7 @@ func New(
 }
 
 func (d *Domain) Prepare() error {
-	err := os.Mkdir(d.cfg.RootPath, defaultModeDir)
+	err := os.MkdirAll(d.cfg.RootPath, defaultModeDir)
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("can't mk root dir: %w", err)
 	}
