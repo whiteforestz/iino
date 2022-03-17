@@ -1,4 +1,4 @@
-package tg
+package tglistener
 
 import (
 	"bytes"
@@ -24,10 +24,9 @@ const (
 )
 
 type Domain struct {
-	started  chan struct{}
-	finished chan struct{}
-	cfg      Config
-
+	started    chan struct{}
+	finished   chan struct{}
+	cfg        Config
 	httpClient HTTPClient
 	hwWatcher  HWWatcherDomain
 	wgWatcher  WGWatcherDomain
@@ -40,10 +39,9 @@ func New(
 	wgWatcherDomain WGWatcherDomain,
 ) *Domain {
 	return &Domain{
-		started:  make(chan struct{}),
-		finished: make(chan struct{}),
-		cfg:      cfg,
-
+		started:    make(chan struct{}),
+		finished:   make(chan struct{}),
+		cfg:        cfg,
 		httpClient: httpClient,
 		hwWatcher:  hwWatcherDomain,
 		wgWatcher:  wgWatcherDomain,

@@ -1,4 +1,4 @@
-package tg
+package tglistener
 
 import (
 	"github.com/kelseyhightower/envconfig"

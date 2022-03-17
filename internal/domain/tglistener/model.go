@@ -1,4 +1,4 @@
-package tg
+package tglistener
 
 const (
 	getUpdatesUpdateTypeMessage = "message"

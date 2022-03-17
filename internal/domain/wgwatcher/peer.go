@@ -2,6 +2,7 @@ package wgwatcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,25 +13,39 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/whiteforestz/iino/internal/domain/persistor"
 	"gopkg.in/ini.v1"
 )
 
-func (d *Domain) updatePeerUsage(ctx context.Context) error {
+const (
+	tagUsagePeer = "usage_peer"
+)
+
+func (d *Domain) updateUsage(ctx context.Context) error {
 	usage, err := d.getCurrentPeerUsage(ctx)
 	if err != nil {
 		return fmt.Errorf("can't get current usage: %w", err)
 	}
 
+	enrichedUsage, err := d.enrichPeerUsage(usage)
+	if err != nil {
+		return fmt.Errorf("can't enrich usage: %w", err)
+	}
+
+	if err = d.flushPeerUsage(enrichedUsage); err != nil {
+		return fmt.Errorf("can't flush usage: %w", err)
+	}
+
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
-	d.usage.Peer = usage
+	d.usage.Peer = enrichedUsage
 
 	return nil
 }
 
 func (d *Domain) getCurrentPeerUsage(ctx context.Context) ([]PeerUsage, error) {
-	peerAccessor, err := d.getPeerAccessor()
+	peerNameAccessor, err := d.getPeerNameAccessor()
 	if err != nil {
 		return nil, fmt.Errorf("can't get peer accessor: %w", err)
 	}
@@ -47,7 +62,7 @@ func (d *Domain) getCurrentPeerUsage(ctx context.Context) ([]PeerUsage, error) {
 
 	usage := make([]PeerUsage, 0, len(lines[1:]))
 	for _, peerLine := range lines[1 : len(lines)-1] {
-		pu, err := extractPeerData(peerLine, peerAccessor)
+		pu, err := extractPeerData(peerLine, peerNameAccessor)
 		if err != nil {
 			return nil, fmt.Errorf("can't extract peed data: %w", err)
 		}
@@ -62,7 +77,7 @@ func (d *Domain) getCurrentPeerUsage(ctx context.Context) ([]PeerUsage, error) {
 	return usage, nil
 }
 
-func (d *Domain) getPeerAccessor() (map[string]string, error) {
+func (d *Domain) getPeerNameAccessor() (map[string]string, error) {
 	var (
 		accessor = make(map[string]string)
 	)
@@ -97,7 +112,48 @@ func (d *Domain) getPeerAccessor() (map[string]string, error) {
 	return accessor, nil
 }
 
-func extractPeerData(peerLine string, peerAccessor map[string]string) (*PeerUsage, error) {
+func (d *Domain) enrichPeerUsage(usage []PeerUsage) ([]PeerUsage, error) {
+	hash, err := d.persistor.Load(tagUsagePeer)
+	if err != nil {
+		if errors.Is(err, persistor.ErrNotExists) {
+			return usage, nil
+		}
+
+		return nil, fmt.Errorf("can't load persited data: %w", err)
+	}
+
+	peerAccessor, err := castPeerAccessorFromBinary(hash)
+	if err != nil {
+		return nil, fmt.Errorf("can't cast accessor: %w", err)
+	}
+
+	enrichedUsage := make([]PeerUsage, 0, len(usage))
+	for _, peer := range usage {
+		persistedPeer, found := peerAccessor[peer.Name]
+		if found && peer.LatestHandshakeUnix < persistedPeer.LatestHandshakeUnix {
+			enrichedUsage = append(enrichedUsage, persistedPeer)
+		} else {
+			enrichedUsage = append(enrichedUsage, peer)
+		}
+	}
+
+	return enrichedUsage, nil
+}
+
+func (d *Domain) flushPeerUsage(usage []PeerUsage) error {
+	b, err := castPeerAccessorToBinary(castPeerUsageToPeerAccessor(usage))
+	if err != nil {
+		return fmt.Errorf("can't cast accessor: %w", err)
+	}
+
+	if err = d.persistor.Save(tagUsagePeer, b); err != nil {
+		return fmt.Errorf("can't save: %w", err)
+	}
+
+	return nil
+}
+
+func extractPeerData(peerLine string, peerNameAccessor map[string]string) (*PeerUsage, error) {
 	tokens := strings.FieldsFunc(peerLine, func(r rune) bool {
 		return unicode.IsSpace(r)
 	})
@@ -107,7 +163,7 @@ func extractPeerData(peerLine string, peerAccessor map[string]string) (*PeerUsag
 
 	presharedKey, latestHandshakeRaw := tokens[1], tokens[4]
 
-	name, found := peerAccessor[presharedKey]
+	name, found := peerNameAccessor[presharedKey]
 	if !found {
 		return nil, fmt.Errorf("unknown peer with preshared key %q", presharedKey)
 	}

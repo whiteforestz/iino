@@ -15,19 +15,24 @@ const (
 )
 
 type Domain struct {
-	started  chan struct{}
-	finished chan struct{}
-	cfg      Config
+	started   chan struct{}
+	finished  chan struct{}
+	cfg       Config
+	persistor PersistorDomain
 
 	mux   *sync.RWMutex
 	usage Usage
 }
 
-func New(cfg Config) *Domain {
+func New(
+	cfg Config,
+	persistorDomain PersistorDomain,
+) *Domain {
 	return &Domain{
-		started:  make(chan struct{}),
-		finished: make(chan struct{}),
-		cfg:      cfg,
+		started:   make(chan struct{}),
+		finished:  make(chan struct{}),
+		cfg:       cfg,
+		persistor: persistorDomain,
 
 		mux: &sync.RWMutex{},
 	}
@@ -69,7 +74,7 @@ func (d *Domain) loop(ctx context.Context) {
 			close(d.finished)
 		},
 		OnTick: func(ctx context.Context) {
-			if err := d.updatePeerUsage(ctx); err != nil {
+			if err := d.updateUsage(ctx); err != nil {
 				logger.Instance().Error("can't update usage", zap.Error(err))
 			}
 		},

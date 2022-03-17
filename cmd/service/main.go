@@ -11,7 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/whiteforestz/iino/internal/domain/hwwatcher"
-	"github.com/whiteforestz/iino/internal/domain/tg"
+	"github.com/whiteforestz/iino/internal/domain/persistor"
+	"github.com/whiteforestz/iino/internal/domain/tglistener"
 	"github.com/whiteforestz/iino/internal/domain/wgwatcher"
 	"github.com/whiteforestz/iino/internal/pkg/logger"
 	"github.com/whiteforestz/iino/internal/pkg/sig"
@@ -49,27 +50,42 @@ func main() {
 	)
 
 	var (
-		hwWatcherCfg = hwwatcher.MustNewConfig()
-		wgWatcherCfg = wgwatcher.MustNewConfig()
-		tgCfg        = tg.MustNewConfig()
+		persistorCfg  = persistor.MustNewConfig()
+		hwWatcherCfg  = hwwatcher.MustNewConfig()
+		wgWatcherCfg  = wgwatcher.MustNewConfig()
+		tgListenerCfg = tglistener.MustNewConfig()
 	)
 
 	var (
-		hwWatcherDomain = hwwatcher.New(hwWatcherCfg)
-		wgWatcherDomain = wgwatcher.New(wgWatcherCfg)
-		tgDomain        = tg.New(tgCfg, httpClient, hwWatcherDomain, wgWatcherDomain)
+		persistorDomain  = persistor.New(persistorCfg)
+		hwWatcherDomain  = hwwatcher.New(hwWatcherCfg)
+		wgWatcherDomain  = wgwatcher.New(wgWatcherCfg, persistorDomain)
+		tgListenerDomain = tglistener.New(
+			tgListenerCfg,
+			httpClient,
+			hwWatcherDomain,
+			wgWatcherDomain,
+		)
 	)
+
+	if err := persistorDomain.Prepare(); err != nil {
+		return
+	}
 
 	hwWatcherDomain.Listen(ctx)
 	wgWatcherDomain.Listen(ctx)
-	tgDomain.Listen(ctx)
+	tgListenerDomain.Listen(ctx)
 
 	logger.Instance().Info("Started! Press CTRL-C to interrupt...")
 
 	defer func() {
 		cancel()
 		hwWatcherDomain.Wait()
-		tgDomain.Wait()
+		tgListenerDomain.Wait()
+
+		if err := persistorDomain.Clean(); err != nil {
+			logger.Instance().Error("can't clean persistor", zap.Error(err))
+		}
 
 		logger.Instance().Info("Bye!")
 	}()

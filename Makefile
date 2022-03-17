@@ -1,4 +1,4 @@
 all: build
 
 build:
-	go build -o ./bin/service ./cmd/service
+	go build -o ./bin/iino-service ./cmd/service
