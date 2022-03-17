@@ -18,9 +18,9 @@ const (
 	timeFormat = "2006-01-02 15:04"
 
 	messageHelp = `
-	*Commands*
-	🔧 /hw\_usage \- returns hardware's usage
-	🥷🏻 /wg\_usage \- returns WireGuard's usage`
+🏷 *Commands*
+🔧 /hw\_usage \- returns hardware's usage
+🥷🏻 /wg\_usage \- returns WireGuard's usage`
 )
 
 func (d *Domain) sendHWUsageMessage(ctx context.Context) (*dtoMessage, error) {
