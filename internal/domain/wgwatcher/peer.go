@@ -32,6 +32,10 @@ func (d *Domain) updateUsage(ctx context.Context) error {
 		return fmt.Errorf("can't enrich usage: %w", err)
 	}
 
+	sort.SliceStable(enrichedUsage, func(i, j int) bool {
+		return enrichedUsage[i].LatestHandshakeUnix > enrichedUsage[j].LatestHandshakeUnix
+	})
+
 	if err = d.flushPeerUsage(enrichedUsage); err != nil {
 		return fmt.Errorf("can't flush usage: %w", err)
 	}
@@ -69,10 +73,6 @@ func (d *Domain) getCurrentPeerUsage(ctx context.Context) ([]PeerUsage, error) {
 
 		usage = append(usage, *pu)
 	}
-
-	sort.SliceStable(usage, func(i, j int) bool {
-		return usage[i].LatestHandshakeUnix > usage[j].LatestHandshakeUnix
-	})
 
 	return usage, nil
 }
