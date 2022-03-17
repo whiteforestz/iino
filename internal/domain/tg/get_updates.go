@@ -16,7 +16,7 @@ var (
 	longPollAllowedUpdates = []string{getUpdatesUpdateTypeMessage}
 )
 
-func (d *Domain) getUpdates(ctx context.Context, lastOffset int64) ([]dtoUpdate, error) {
+func (d *Domain) getUpdates(ctx context.Context, lastUpdateID int64) ([]dtoUpdate, error) {
 	ctx, cancel := context.WithTimeout(ctx, getUpdatesTimeout)
 	defer cancel()
 
@@ -31,8 +31,8 @@ func (d *Domain) getUpdates(ctx context.Context, lastOffset int64) ([]dtoUpdate,
 		out getUpdatesOut
 	)
 
-	if lastOffset != 0 {
-		in.Offset = lastOffset + 1
+	if lastUpdateID != 0 {
+		in.Offset = lastUpdateID + 1
 	}
 
 	if err := d.performRequest(ctx, host, &in, &out); err != nil {

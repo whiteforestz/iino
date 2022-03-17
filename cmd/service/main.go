@@ -10,8 +10,9 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"github.com/whiteforestz/iino/internal/domain/sysmon"
+	"github.com/whiteforestz/iino/internal/domain/hwwatcher"
 	"github.com/whiteforestz/iino/internal/domain/tg"
+	"github.com/whiteforestz/iino/internal/domain/wgwatcher"
 	"github.com/whiteforestz/iino/internal/pkg/logger"
 	"github.com/whiteforestz/iino/internal/pkg/sig"
 )
@@ -34,29 +35,40 @@ func main() {
 
 	logger.Init(log)
 	defer func() {
+		if r := recover(); r != nil {
+			logger.Instance().Error("can't start app", zap.Any("recover", r))
+		}
+
 		if err != nil {
 			logger.Instance().Error("can't start app", zap.Error(err))
 		}
 	}()
 
-	httpClient := &http.Client{}
+	var (
+		httpClient = &http.Client{}
+	)
 
-	tgCfg, err := tg.NewConfig()
-	if err != nil {
-		return
-	}
+	var (
+		hwWatcherCfg = hwwatcher.MustNewConfig()
+		wgWatcherCfg = wgwatcher.MustNewConfig()
+		tgCfg        = tg.MustNewConfig()
+	)
 
-	sysMonDomain := sysmon.New()
-	tgDomain := tg.New(httpClient, sysMonDomain, *tgCfg)
+	var (
+		hwWatcherDomain = hwwatcher.New(hwWatcherCfg)
+		wgWatcherDomain = wgwatcher.New(wgWatcherCfg)
+		tgDomain        = tg.New(tgCfg, httpClient, hwWatcherDomain, wgWatcherDomain)
+	)
 
-	sysMonDomain.Listen(ctx)
+	hwWatcherDomain.Listen(ctx)
+	wgWatcherDomain.Listen(ctx)
 	tgDomain.Listen(ctx)
 
 	logger.Instance().Info("Started! Press CTRL-C to interrupt...")
 
 	defer func() {
 		cancel()
-		sysMonDomain.Wait()
+		hwWatcherDomain.Wait()
 		tgDomain.Wait()
 
 		logger.Instance().Info("Bye!")

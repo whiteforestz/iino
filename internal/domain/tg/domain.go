@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/whiteforestz/iino/internal/pkg/infloop"
 	"github.com/whiteforestz/iino/internal/pkg/logger"
 )
 
@@ -25,23 +26,27 @@ const (
 type Domain struct {
 	started  chan struct{}
 	finished chan struct{}
+	cfg      Config
 
 	httpClient HTTPClient
-	sysMon     SysMonDomain
-	cfg        Config
+	hwWatcher  HWWatcherDomain
+	wgWatcher  WGWatcherDomain
 }
 
 func New(
-	httpClient HTTPClient,
-	sysMonDomain SysMonDomain,
 	cfg Config,
+	httpClient HTTPClient,
+	hwWatcherDomain HWWatcherDomain,
+	wgWatcherDomain WGWatcherDomain,
 ) *Domain {
 	return &Domain{
-		started:    make(chan struct{}),
-		finished:   make(chan struct{}),
+		started:  make(chan struct{}),
+		finished: make(chan struct{}),
+		cfg:      cfg,
+
 		httpClient: httpClient,
-		sysMon:     sysMonDomain,
-		cfg:        cfg,
+		hwWatcher:  hwWatcherDomain,
+		wgWatcher:  wgWatcherDomain,
 	}
 }
 
@@ -58,21 +63,24 @@ func (d *Domain) loop(ctx context.Context) {
 	ticker := time.NewTicker(tickPeriod)
 	defer ticker.Stop()
 
-	close(d.started)
+	var (
+		lastUpdateID int64
+	)
 
-	var lastOffset int64
-	for {
-		select {
-		case <-ctx.Done():
+	infloop.InfLoop(ctx, ticker, infloop.Caller{
+		OnStart: func(_ context.Context) {
+			close(d.started)
+		},
+		OnFinish: func(_ context.Context) {
 			close(d.finished)
-			return
-		case <-ticker.C:
-			updates, err := d.getUpdates(ctx, lastOffset)
+		},
+		OnTick: func(ctx context.Context) {
+			updates, err := d.getUpdates(ctx, lastUpdateID)
 			if err != nil {
 				if !isTimeout(err) {
 					logger.Instance().Error("can't get updates", zap.Error(err))
 				}
-				continue
+				return
 			}
 
 			for _, update := range updates {
@@ -83,10 +91,10 @@ func (d *Domain) loop(ctx context.Context) {
 					break
 				}
 
-				lastOffset = update.UpdateID
+				lastUpdateID = update.UpdateID
 			}
-		}
-	}
+		},
+	})
 }
 
 func (d *Domain) performRequest(ctx context.Context, host string, in, out interface{}) error {
@@ -109,13 +117,14 @@ func (d *Domain) performRequest(ctx context.Context, host string, in, out interf
 		_ = resp.Body.Close()
 	}()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("request failed with code %d", resp.StatusCode)
-	}
-
 	rawOut, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("can't read raw out: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Instance().Warn("http error", zap.String("response", string(rawOut)))
+		return fmt.Errorf("request failed with code %d", resp.StatusCode)
 	}
 
 	if err = json.Unmarshal(rawOut, out); err != nil {

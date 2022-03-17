@@ -1,4 +1,4 @@
-package sysmon
+package hwwatcher
 
 type Usage struct {
 	CPU []CPUCoreUsage
@@ -23,14 +23,14 @@ type cpuCoreLoad struct {
 	GuestNice int64 // GuestNice is time spent running a niced guest.
 }
 
-func (cpuсl *cpuCoreLoad) GetTotalIdle() int64 {
-	return cpuсl.Idle + cpuсl.IOWait
+func (cpucl *cpuCoreLoad) GetTotalIdle() int64 {
+	return cpucl.Idle + cpucl.IOWait
 }
 
-func (cpuсl *cpuCoreLoad) GetTotalNonIdle() int64 {
-	return cpuсl.User + cpuсl.Nice + cpuсl.System + cpuсl.IRq + cpuсl.SoftIRq + cpuсl.Steal
+func (cpucl *cpuCoreLoad) GetTotalNonIdle() int64 {
+	return cpucl.User + cpucl.Nice + cpucl.System + cpucl.IRq + cpucl.SoftIRq + cpucl.Steal
 }
 
-func (cpuсl *cpuCoreLoad) GetTotal() int64 {
-	return cpuсl.GetTotalIdle() + cpuсl.GetTotalNonIdle()
+func (cpucl *cpuCoreLoad) GetTotal() int64 {
+	return cpucl.GetTotalIdle() + cpucl.GetTotalNonIdle()
 }

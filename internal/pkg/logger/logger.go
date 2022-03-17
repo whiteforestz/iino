@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	st      Logger
+	st      Logger = &noop{}
 	stGuard sync.Once
 	stMux   sync.RWMutex
 )

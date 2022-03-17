@@ -1,4 +1,4 @@
-package sysmon
+package hwwatcher
 
 import (
 	"errors"
@@ -13,8 +13,6 @@ import (
 )
 
 const (
-	pathProcStat = "/tmp/inno/proc/stat"
-
 	prefixCPU = "cpu"
 )
 
@@ -24,25 +22,25 @@ func (d *Domain) updateCPUUsage(lastCPULoad []cpuCoreLoad) ([]cpuCoreLoad, error
 		return nil, fmt.Errorf("can't get current cpu load: %w", err)
 	}
 
-	d.cpuMux.Lock()
-	defer d.cpuMux.Unlock()
+	d.mux.Lock()
+	defer d.mux.Unlock()
 
 	if len(lastCPULoad) == 0 {
 		return cpuLoad, nil
 	}
 
-	if len(lastCPULoad) != len(cpuLoad) {
+	if len(cpuLoad) != len(lastCPULoad) {
 		return nil, errors.New("inconsistent length")
 	}
 
-	cpuLoadAccessor := make(map[string]cpuCoreLoad, len(cpuLoad))
-	for _, cpuLoad := range cpuLoad {
-		cpuLoadAccessor[cpuLoad.Slug] = cpuLoad
+	coreLoadAccessor := make(map[string]cpuCoreLoad, len(cpuLoad))
+	for _, coreLoad := range cpuLoad {
+		coreLoadAccessor[coreLoad.Slug] = coreLoad
 	}
 
 	cpuUsage := make([]CPUCoreUsage, 0, len(cpuLoad))
 	for idx, lastCoreLoad := range lastCPULoad {
-		coreLoad, found := cpuLoadAccessor[lastCoreLoad.Slug]
+		coreLoad, found := coreLoadAccessor[lastCoreLoad.Slug]
 		if !found {
 			return nil, fmt.Errorf("last cpu load %q not found", lastCoreLoad.Slug)
 		}
@@ -51,8 +49,8 @@ func (d *Domain) updateCPUUsage(lastCPULoad []cpuCoreLoad) ([]cpuCoreLoad, error
 		diffIdle := coreLoad.GetTotalIdle() - lastCoreLoad.GetTotalIdle()
 
 		var lastCoreUsage int64
-		if len(d.cpuUsage) != 0 {
-			lastCoreUsage = d.cpuUsage[idx].Percentage
+		if len(d.usage.CPU) != 0 {
+			lastCoreUsage = d.usage.CPU[idx].Percentage
 		}
 
 		var coreUsage int64
@@ -66,7 +64,7 @@ func (d *Domain) updateCPUUsage(lastCPULoad []cpuCoreLoad) ([]cpuCoreLoad, error
 		})
 	}
 
-	d.cpuUsage = cpuUsage
+	d.usage.CPU = cpuUsage
 
 	logger.Instance().Debug("cpu usage updated", zap.Any("cpuUsage", cpuUsage))
 
@@ -74,7 +72,7 @@ func (d *Domain) updateCPUUsage(lastCPULoad []cpuCoreLoad) ([]cpuCoreLoad, error
 }
 
 func (d *Domain) getCurrentCPULoad() ([]cpuCoreLoad, error) {
-	raw, err := loadMagicFile(pathProcStat)
+	raw, err := loadMagicFile(d.cfg.CPULoadSourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("can't load magic file: %w", err)
 	}
@@ -101,7 +99,6 @@ func (d *Domain) getCurrentCPULoad() ([]cpuCoreLoad, error) {
 }
 
 func extractCPUCoreLoad(cpuLine string) (*cpuCoreLoad, error) {
-	// coreTokens := strings.Split(cpuLine, " ")
 	coreTokens := strings.FieldsFunc(cpuLine, func(r rune) bool {
 		return unicode.IsSpace(r)
 	})

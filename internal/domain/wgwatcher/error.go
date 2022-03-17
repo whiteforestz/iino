@@ -1,8 +1,6 @@
-package sysmon
+package wgwatcher
 
-import (
-	"errors"
-)
+import "errors"
 
 var (
 	ErrEmptyUsage = errors.New("empty usage")

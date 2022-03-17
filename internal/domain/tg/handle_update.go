@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	cmdUsageStats = "/usage_stats"
+	cmdHWUsage = "/hw_usage"
+	cmdWGUsage = "/wg_usage"
 )
 
 func (d *Domain) handleUpdate(ctx context.Context, update dtoUpdate) error {
@@ -16,8 +17,10 @@ func (d *Domain) handleUpdate(ctx context.Context, update dtoUpdate) error {
 
 	var err error
 	switch update.Message.Text {
-	case cmdUsageStats:
-		_, err = d.sendUsageStatsMessage(ctx)
+	case cmdHWUsage:
+		_, err = d.sendHWUsageMessage(ctx)
+	case cmdWGUsage:
+		_, err = d.sendWGUsageMessage(ctx)
 	default:
 		_, err = d.sendHelpMessage(ctx)
 	}
