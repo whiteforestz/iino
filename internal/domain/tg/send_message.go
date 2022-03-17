@@ -85,7 +85,7 @@ func (d *Domain) sendWGUsageMessage(ctx context.Context) (*dtoMessage, error) {
 func (d *Domain) sendHelpMessage(ctx context.Context) (*dtoMessage, error) {
 	var b strings.Builder
 
-	b.WriteString("🤖 Hello!\n")
+	b.WriteString("🤖 Hello\n")
 	b.WriteString(messageHelp)
 
 	return d.sendMessage(ctx, sendMessageIn{
