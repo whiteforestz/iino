@@ -19,8 +19,6 @@ import (
 )
 
 func main() {
-	var err error
-
 	ctx, cancel := sig.WithCancel(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	if err := godotenv.Load(); err != nil {
@@ -33,8 +31,8 @@ func main() {
 		golog.Println(err.Error())
 		os.Exit(-1)
 	}
-
 	logger.Init(log)
+
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Instance().Error("can't start app", zap.Any("recover", r))
@@ -68,7 +66,11 @@ func main() {
 		)
 	)
 
-	if err := persistorDomain.Prepare(); err != nil {
+	if err = persistorDomain.Prepare(); err != nil {
+		return
+	}
+
+	if err = wgWatcherDomain.Prepare(); err != nil {
 		return
 	}
 
@@ -78,17 +80,15 @@ func main() {
 
 	logger.Instance().Info("Started! Press CTRL-C to interrupt...")
 
-	defer func() {
-		cancel()
-		hwWatcherDomain.Wait()
-		tgListenerDomain.Wait()
-
-		if err := persistorDomain.Clean(); err != nil {
-			logger.Instance().Error("can't clean persistor", zap.Error(err))
-		}
-
-		logger.Instance().Info("Bye!")
-	}()
-
 	<-ctx.Done()
+
+	cancel()
+	hwWatcherDomain.Wait()
+	tgListenerDomain.Wait()
+
+	if err = persistorDomain.Clean(); err != nil {
+		return
+	}
+
+	logger.Instance().Info("Bye!")
 }

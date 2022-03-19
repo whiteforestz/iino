@@ -20,7 +20,8 @@ const (
 type Domain struct {
 	cfg Config
 
-	tags map[string]string
+	prepared bool
+	tags     map[string]string
 }
 
 func New(
@@ -45,11 +46,14 @@ func (d *Domain) Prepare() error {
 	}
 
 	d.tags[tagRoot] = path
+	d.prepared = true
 
 	return nil
 }
 
 func (d *Domain) Clean() error {
+	d.guard()
+
 	rootPath, found := d.tags[tagRoot]
 	if !found {
 		return errors.New("root tag not found")
@@ -63,6 +67,8 @@ func (d *Domain) Clean() error {
 }
 
 func (d *Domain) Save(tag string, b []byte) error {
+	d.guard()
+
 	tagPath, err := d.prepareTag(tag)
 	if err != nil {
 		return fmt.Errorf("can't prepare tag: %w", err)
@@ -92,6 +98,8 @@ func (d *Domain) Save(tag string, b []byte) error {
 }
 
 func (d *Domain) Load(tag string) ([]byte, error) {
+	d.guard()
+
 	pathData := filepath.Join(d.cfg.RootPath, tag)
 	b, err := ioutil.ReadFile(pathData)
 	if err != nil {
@@ -127,6 +135,12 @@ func (d *Domain) prepareTag(tag string) (string, error) {
 	d.tags[tag] = tagPath
 
 	return tagPath, nil
+}
+
+func (d *Domain) guard() {
+	if !d.prepared {
+		panic("unprepared domain")
+	}
 }
 
 func generateRandomSlug() (string, error) {

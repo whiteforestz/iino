@@ -13,14 +13,12 @@ import (
 
 const (
 	apiMethodSendMessage = "sendMessage"
-	sendMessageTimeout   = 2 * time.Second
-
-	timeFormat = "2006-01-02 15:04"
+	timeoutSendMessage   = 2 * time.Second
 
 	messageHelp = `
 🏷 *Commands*
-🔧 /hw\_usage \- returns hardware usage
-🥷🏻 /wg\_usage \- returns WireGuard usage`
+🔧 /hwusage \- returns hardware usage
+🥷🏻 /wgusage \- returns WireGuard usage`
 )
 
 func (d *Domain) sendHWUsageMessage(ctx context.Context) (*dtoMessage, error) {
@@ -59,15 +57,28 @@ func (d *Domain) sendWGUsageMessage(ctx context.Context) (*dtoMessage, error) {
 	}
 
 	if errors.Is(err, wgwatcher.ErrEmptyUsage) {
-		b.WriteString("🥷🏻 WireGuard usage is not found or empty 🗿\n")
+		b.WriteString("🥷🏻 *WireGuard usage* is not found or empty 🗿\n")
 	} else {
+		nowUnix := time.Now().Unix()
+
 		b.WriteString("🥷🏻 *WireGuard usage*\n")
 		for _, peer := range usage.Peer {
+			b.WriteString("⏤⏤⏤\n")
+
+			activityStatus := formatActivityStatus(nowUnix, peer.LatestHandshakeUnix)
+			b.WriteString(fmt.Sprintf("`%s` is `%s`\n", peer.Name, activityStatus))
+
 			if peer.LatestHandshakeUnix != 0 {
-				handshakedAt := time.Unix(peer.LatestHandshakeUnix, 0).Format(timeFormat)
-				b.WriteString(fmt.Sprintf("`%s` \\- handshaked at `%s`\n", peer.Name, handshakedAt))
-			} else {
-				b.WriteString(fmt.Sprintf("`%s` \\- offline\n", peer.Name))
+				handshakedAt := formatLatestActivity(peer.LatestHandshakeUnix)
+				b.WriteString(fmt.Sprintf("handshaked at `%s`\n", handshakedAt))
+			}
+
+			if peer.TransferRx != 0 {
+				b.WriteString(fmt.Sprintf("received `%s`\n", formatMemorySize(peer.TransferRx)))
+			}
+
+			if peer.TransferTx != 0 {
+				b.WriteString(fmt.Sprintf("sent `%s`\n", formatMemorySize(peer.TransferTx)))
 			}
 		}
 	}
@@ -85,7 +96,7 @@ func (d *Domain) sendWGUsageMessage(ctx context.Context) (*dtoMessage, error) {
 func (d *Domain) sendHelpMessage(ctx context.Context) (*dtoMessage, error) {
 	var b strings.Builder
 
-	b.WriteString("🤖 Hello\n")
+	b.WriteString("🤖 Hello\\!\n")
 	b.WriteString(messageHelp)
 
 	return d.sendMessage(ctx, sendMessageIn{
@@ -97,7 +108,7 @@ func (d *Domain) sendHelpMessage(ctx context.Context) (*dtoMessage, error) {
 }
 
 func (d *Domain) sendMessage(ctx context.Context, in sendMessageIn) (*dtoMessage, error) {
-	ctx, cancel := context.WithTimeout(ctx, sendMessageTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeoutSendMessage)
 	defer cancel()
 
 	var (

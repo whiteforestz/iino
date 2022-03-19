@@ -8,7 +8,7 @@ import (
 
 const (
 	apiMethodGetUpdates = "getUpdates"
-	getUpdatesTimeout   = 10 * time.Second
+	timeoutGetUpdates   = 10 * time.Second
 	getUpdatesLimit     = 100
 )
 
@@ -17,7 +17,7 @@ var (
 )
 
 func (d *Domain) getUpdates(ctx context.Context, lastUpdateID int64) ([]dtoUpdate, error) {
-	ctx, cancel := context.WithTimeout(ctx, getUpdatesTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeoutGetUpdates)
 	defer cancel()
 
 	var (
@@ -25,7 +25,7 @@ func (d *Domain) getUpdates(ctx context.Context, lastUpdateID int64) ([]dtoUpdat
 
 		in = getUpdatesIn{
 			Limit:          getUpdatesLimit,
-			Timeout:        int64(getUpdatesTimeout.Seconds()),
+			Timeout:        int64(timeoutGetUpdates.Seconds()),
 			AllowedUpdates: longPollAllowedUpdates,
 		}
 		out getUpdatesOut

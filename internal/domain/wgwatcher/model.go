@@ -1,12 +1,14 @@
 package wgwatcher
 
 type Usage struct {
-	Peer []PeerUsage
+	Peer []Peer
 }
 
-type PeerUsage struct {
+type Peer struct {
 	Name                string
 	LatestHandshakeUnix int64
+	TransferRx          int64
+	TransferTx          int64
 }
 
 type iniConf struct {

@@ -2,6 +2,7 @@ package wgwatcher
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -20,8 +21,10 @@ type Domain struct {
 	cfg       Config
 	persistor PersistorDomain
 
-	mux   *sync.RWMutex
-	usage Usage
+	prepared             bool
+	snapshotPeerAccessor map[string]snapshotPeer
+	mux                  *sync.RWMutex
+	usage                Usage
 }
 
 func New(
@@ -38,7 +41,22 @@ func New(
 	}
 }
 
+func (d *Domain) Prepare() error {
+	var err error
+
+	d.snapshotPeerAccessor, err = d.loadSnapshotPeerAccessor()
+	if err != nil {
+		return fmt.Errorf("can't load snapshot peer accessor: %w", err)
+	}
+
+	d.prepared = true
+
+	return nil
+}
+
 func (d *Domain) Listen(ctx context.Context) {
+	d.guard()
+
 	go d.loop(ctx)
 	<-d.started
 }
@@ -48,6 +66,8 @@ func (d *Domain) Wait() {
 }
 
 func (d *Domain) GetUsage() (*Usage, error) {
+	d.guard()
+
 	var usage Usage
 
 	d.mux.RLock()
@@ -79,4 +99,10 @@ func (d *Domain) loop(ctx context.Context) {
 			}
 		},
 	})
+}
+
+func (d *Domain) guard() {
+	if !d.prepared {
+		panic("unprepared domain")
+	}
 }

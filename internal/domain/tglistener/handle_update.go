@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	cmdHWUsage = "/hw_usage"
-	cmdWGUsage = "/wg_usage"
+	cmdHWUsage = "/hwusage"
+	cmdWGUsage = "/wgusage"
 )
 
 func (d *Domain) handleUpdate(ctx context.Context, update dtoUpdate) error {
