@@ -78,7 +78,7 @@ func (d *Domain) sendWGUsageMessage(ctx context.Context) (*dtoMessage, error) {
 			}
 
 			if peer.TransferTx != 0 {
-				b.WriteString(fmt.Sprintf("sent `%s`\n", formatMemorySize(peer.TransferTx)))
+				b.WriteString(fmt.Sprintf("sent     `%s`\n", formatMemorySize(peer.TransferTx)))
 			}
 		}
 	}
