@@ -11,6 +11,8 @@ const (
 	activityStatusOffline         = "offline"
 	activityStatusOnline          = "online"
 	activityStatusOnlineThreshold = 2 * time.Minute
+
+	memorySizeThreshold = 1000
 )
 
 var (
@@ -45,7 +47,7 @@ func formatMemorySize(bytes int64) string {
 		n     = float64(bytes)
 	)
 
-	for n > 100 {
+	for n > memorySizeThreshold {
 		n /= 1024
 		order++
 	}
